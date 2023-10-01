@@ -1,0 +1,192 @@
+import sqlite3
+
+# Create a SQLite database
+newConnection = sqlite3.connect("library.db")
+cursor = newConnection.cursor()
+
+# Create the Books, Users, and Reservations tables
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS Books (
+    BookID TEXT PRIMARY KEY,
+    Title TEXT,
+    Author TEXT,
+    ISBN TEXT,
+    Status TEXT
+)
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS Users (
+    UserID TEXT PRIMARY KEY,
+    Name TEXT,
+    Email TEXT
+)
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS Reservations (
+    ReservationID TEXT PRIMARY KEY,
+    BookID TEXT,
+    UserID TEXT,
+    ReservationDate TEXT,
+    FOREIGN KEY (BookID) REFERENCES Books (BookID),
+    FOREIGN KEY (UserID) REFERENCES Users (UserID)
+)
+""")
+newConnection.commit()
+
+# Function to add a new book to the Books table
+def add_book():
+    book_id = input("Enter BookID: ")
+    title = input("Enter Title: ")
+    author = input("Enter Author: ")
+    isbn = input("Enter ISBN: ")
+    status = "Available"
+    cursor.execute("INSERT INTO Books VALUES (?, ?, ?, ?, ?)", (book_id, title, author, isbn, status))
+    newConnection.commit()
+    print("Added")
+
+# Function to find a book's details based on BookID
+def find_book_by_id():
+    book_id = input("Enter BookID: ")
+    cursor.execute("""
+    SELECT B.BookID, B.Title, B.Author, B.ISBN, B.Status, R.ReservationID, R.UserID, R.ReservationDate, U.Name, U.Email
+    FROM Books AS B
+    LEFT JOIN Reservations AS R ON B.BookID = R.BookID
+    LEFT JOIN Users AS U ON R.UserID = U.UserID
+    WHERE B.BookID = ?
+    """, (book_id,))
+    result = cursor.fetchone()
+    if result:
+        print("Book Details:")
+        print(f"BookID: {result[0]}")
+        print(f"Title: {result[1]}")
+        print(f"Author: {result[2]}")
+        print(f"ISBN: {result[3]}")
+        print(f"Status: {result[4]}")
+        if result[5]:
+            print("Reservation Details:")
+            print(f"ReservationID: {result[5]}")
+            print(f"UserID: {result[6]}")
+            print(f"ReservationDate: {result[7]}")
+            print(f"User Name: {result[8]}")
+            print(f"User Email: {result[9]}")
+    else:
+        print("Not found")
+
+# Function to find a book's reservation status based on input
+def find_reservation_status(input_text):
+    if input_text.startswith("LB"):
+        cursor.execute("""
+        SELECT B.Status
+        FROM Books AS B
+        WHERE B.BookID = ?
+        """, (input_text,))
+    elif input_text.startswith("LU"):
+        cursor.execute("""
+        SELECT B.Status
+        FROM Books AS B
+        INNER JOIN Reservations AS R ON B.BookID = R.BookID
+        WHERE R.UserID = ?
+        """, (input_text,))
+    elif input_text.startswith("LR"):
+        cursor.execute("""
+        SELECT B.Status
+        FROM Books AS B
+        INNER JOIN Reservations AS R ON B.BookID = R.BookID
+        WHERE R.ReservationID = ?
+        """, (input_text,))
+    else:
+        cursor.execute("""
+        SELECT B.Status
+        FROM Books AS B
+        WHERE B.Title = ?
+        """, (input_text,))
+
+    result = cursor.fetchall()
+    if result:
+        print("Reservation Status:")
+        for row in result:
+            print(f"Status: {row[0]}")
+    else:
+        print("No matching records found")
+
+# Function to find all the books in the database
+def find_all_books():
+    cursor.execute("""
+    SELECT B.BookID, B.Title, B.Author, B.ISBN, B.Status, R.ReservationID, R.UserID, R.ReservationDate, U.Name, U.Email
+    FROM Books AS B
+    LEFT JOIN Reservations AS R ON B.BookID = R.BookID
+    LEFT JOIN Users AS U ON R.UserID = U.UserID
+    """)
+    result = cursor.fetchall()
+    if result:
+        print("All Books:")
+        for row in result:
+            print("Book Details:")
+            print(f"BookID: {row[0]}")
+            print(f"Title: {row[1]}")
+            print(f"Author: {row[2]}")
+            print(f"ISBN: {row[3]}")
+            print(f"Status: {row[4]}")
+            if row[5]:
+                print("Reservation Details:")
+                print(f"ReservationID: {row[5]}")
+                print(f"UserID: {row[6]}")
+                print(f"ReservationDate: {row[7]}")
+                print(f"User Name: {row[8]}")
+                print(f"User Email: {row[9]}")
+            print("\n")
+    else:
+        print("No books found")
+
+# Function to modify/update book details based on BookID
+def update_book_details():
+    book_id = input("Enter BookID to update: ")
+    new_status = input("Enter new Status (Available/Reserved): ")
+    cursor.execute("UPDATE Books SET Status = ? WHERE BookID = ?", (new_status, book_id))
+    cursor.execute("UPDATE Reservations SET ReservationDate = CURRENT_TIMESTAMP WHERE BookID = ?", (book_id,))
+    newConnection.commit()
+    print("Updated")
+
+# Function to delete a book based on BookID
+def delete_book():
+    book_id = input("Enter BookID to delete: ")
+    cursor.execute("DELETE FROM Books WHERE BookID = ?", (book_id,))
+    cursor.execute("DELETE FROM Reservations WHERE BookID = ?", (book_id,))
+    newConnection.commit()
+    print("Deleted")
+
+# Main program loop
+while True:
+    print("\nLibrary Management System")
+    print("1. Add a new book")
+    print("2. Find a book's detail by BookID")
+    print("3. Find a book's reservation status")
+    print("4. Find all books")
+    print("5. Modify/update book details")
+    print("6. Delete a book")
+    print("7. Exit")
+
+    choice = input("Enter your choice: ")
+
+    if choice == '1':
+        add_book()
+    elif choice == '2':
+        find_book_by_id()
+    elif choice == '3':
+        input_text = input("Enter BookID, UserID, ReservationID, or Title: ")
+        find_reservation_status(input_text)
+    elif choice == '4':
+        find_all_books()
+    elif choice == '5':
+        update_book_details()
+    elif choice == '6':
+        delete_book()
+    elif choice == '7':
+        print("Exiting the program. Goodbye!")
+        break
+    else:
+        print("Invalid choice. Please select a valid option.")
+
+newConnection.close()
